@@ -2,12 +2,12 @@
 
 By Andrew Li and Francis Sunga
 
-##Description
+## Description
 
 ...
 
-##other stuff
+## other stuff
 
 ...
 
-#Whatever
+# Whatever
