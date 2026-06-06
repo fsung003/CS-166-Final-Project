@@ -1,10 +1,9 @@
 #include "schema.sql"
 #include <iostream>
-
-struct 
+#include <string>
 
 int main() {
 
-    //populate database with "preexisting users"
-
+    std::cout << "hello world" << std::endl;
+    return 0;
 }
