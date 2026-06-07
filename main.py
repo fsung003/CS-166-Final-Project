@@ -103,27 +103,56 @@ def register():
 def user_menu():
     while True:
         print("\n--- MENU ---")
-        print("1. View Profile")
-        print("2. Edit Profile")
+        print("1. Browse Items")
+        print("2. Search Auctions")
+        print("3. Place Bids")
+        print("4. View Auction Status")
+        print("5. View Profile")
+        print("6. Edit Profile")
+        print()
         
         if current_user.role == "Admin":
-            print("3. Change User Role")
+            print("7. Change User Role")
+        if current_user.role == "Seller":
+            print("7. Create Listing")
 
         print("0. Logout")
 
         choice = input("Select option: ")
 
         if choice == "1":
-            view_profile()
+            browse_items()
         elif choice == "2":
+            search_auctions()
+        elif choice == "3":
+            place_bids()
+        elif choice == "4":
+            view_auction_status()
+        elif choice == "5":
+            view_profile()
+        elif choice == "6":
             edit_profile()
-        elif choice == "3" and current_user.role == "Admin":
+        elif choice == "7" and current_user.role == "Admin":
             change_role()
+        elif choice == "7" and current_user.role == "Seller":
+            create_listing()
         elif choice == "0":
             logout()
             break
         else:
             print("Invalid option")
+
+def browse_items():
+    pass
+
+def search_auctions():
+    pass
+
+def place_bids():
+    pass
+
+def view_auction_status():
+    pass
 
 def view_profile():
     print("\n--- PROFILE ---")
