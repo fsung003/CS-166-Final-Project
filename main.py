@@ -192,7 +192,10 @@ def search_auctions():
         return
 
 def place_bids():
-    # Display 
+    # Display auctions with current highest bid
+    if current_user.role == "Seller":
+        print("\nUser is a Seller, cannot place bids on auctions.")
+        return
     cursor.execute("""
         SELECT I.item_id, I.item_name, I.category, B.bid_amount, I.item_condition, A.auction_status
         FROM item I 
@@ -200,9 +203,10 @@ def place_bids():
         INNER JOIN bid B ON A.auction_id = B.auction_id
         WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
                               FROM bid B2     
-                              WHERE B2.auction_id = A.auction_id);
+                              WHERE B2.auction_id = A.auction_id)
+              AND A.auction_status = 'Active';
     """)
-    print("\nbid_id | Item Name | Category | Current Bid | Condition | Status")
+    print("\nitem_id | Item Name | Category | Current Bid | Condition | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
@@ -216,9 +220,10 @@ def place_bids():
         WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
                               FROM bid B2     
                               WHERE B2.auction_id = A.auction_id)
+              AND A.auction_status = 'Active'
               AND I.item_id = %s;
     """, (choice,))
-    print("\nbid_id | Item Name | Category | Current Bid | Condition | Status")
+    print("\nitem_id | Item Name | Category | Current Bid | Condition | Status")
     print(cursor.fetchone())
 
     # Get highest price for auction 
@@ -233,8 +238,8 @@ def place_bids():
 
     # Get bid amount from user input
     bid = 0
-    while bid < starting_price:
-        bid = Decimal(input("\nPlease enter a bid equal to or higher than the current auction price, or enter 0 to not make a bid: "))
+    while bid <= starting_price:
+        bid = Decimal(input("\nPlease enter a bid higher than the current auction price, or enter 0 to not make a bid: "))
         if bid == 0:
             return
 
@@ -251,7 +256,7 @@ def place_bids():
 
     if input("\nPress Enter to return to the menu..."):
         return
-
+        
 def view_auction_status():
     cursor.execute("""
         SELECT B.bid_id, A.auction_id, A.item_id, B.buyer_login, B.bid_amount
