@@ -1,8 +1,9 @@
 import os
 import psycopg2
+from decimal import Decimal
 
 username = os.getlogin() 
-db_name = f"{username}_DB"
+db_name = f"{username}_phase3_DB"
 
 try:
     #Connect via TCP network using your username
@@ -13,7 +14,7 @@ try:
         port="32237"       
     )
     cursor = conn.cursor()
-    print(f"Successfully connected to university database: {db_name} on port 32237!")
+    print(f"Successfully connected to university database: {db_name} on port 35945!")
 except Exception as e:
     try:
         # Fallback to the 'postgres' user if username is blocked
@@ -21,10 +22,10 @@ except Exception as e:
             dbname=db_name,
             user="postgres",
             host="127.0.0.1",
-            port="32237"
+            port="35945"
         )
         cursor = conn.cursor()
-        print(f"Successfully connected to university database: {db_name} (as postgres) on port 32237!")
+        print(f"Successfully connected to university database: {db_name} (as postgres) on port 35945!")
     except Exception as fallback_error:
         print(f"Database Connection Failed!\n")
         print(f"Attempt with user '{username}' failed: {e}\n")
@@ -125,7 +126,9 @@ def user_menu():
             search_auctions()
         elif choice == "3":
             place_bids()
-        elif choice == "4":
+        elif choice == "4" and current_user.role != "Seller":
+            print("User is a buyer. No current auctions to display.")
+        elif choice == "4" and current_user.role == "Seller":
             view_auction_status()
         elif choice == "5":
             view_profile()
@@ -142,16 +145,72 @@ def user_menu():
             print("Invalid option")
 
 def browse_items():
-    pass
+    cursor.execute("""
+        SELECT item_id, item_name, category, starting_price, item_condition
+        FROM item;
+    """)
+
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+    print("Items displayed.")
 
 def search_auctions():
-    pass
+    cursor.execute("""
+        SELECT A.auction_id, I.item_name, A.seller_login, A.current_highest_bid, A.auction_status 
+        FROM auction A INNER JOIN item I ON A.item_id = I.item_id;
+    """)
+
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+    print("Auctions displayed.")
 
 def place_bids():
-    pass
+    browse_items()
+    choice = input("\nSelect an item_id to make a bid on: ")
+    cursor.execute("""
+        SELECT item_id, item_name, starting_price, category, item_condition 
+        FROM item WHERE item_id = %s;
+    """, (choice,))
+    print(cursor.fetchone())
+
+    # Get highest price for auction # NEED TO CHANGE
+    cursor.execute("""
+        SELECT starting_price FROM item WHERE item_id = %s;
+    """, (choice,))
+    starting_price = cursor.fetchone()[0]
+    print("Starting Price: ", starting_price)
+
+    # Get bid amount from user input
+    bid = 0
+    while bid < starting_price:
+        bid = Decimal(input("\nPlease enter a bid equal to or higher than the current auction price, or enter 0 to not make a bid: "))
+        if bid == 0:
+            return
+
+    # Get new bid id
+    cursor.execute("SELECT MAX(bid_id) FROM bid;")
+    bid_id = cursor.fetchone()[0] + 1
+
+    # Insert new bid into database
+    cursor.execute("""
+        INSERT INTO bid (bid_id, auction_id, buyer_login, buyer_role, bid_amount) VALUES (%s, %s, %s, %s, %s);
+    """, (bid_id, 1, current_user.login, "Buyer", bid))
+    conn.commit()
+    print("Bid placed.")
 
 def view_auction_status():
-    pass
+    cursor.execute("""
+        SELECT B.bid_id, A.auction_id, A.item_id, B.buyer_login, B.bid_amount
+        FROM auction A
+        INNER JOIN bid B ON A.auction_id = B.auction_id
+    """)
+
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+    print("Auctions displayed.")
 
 def view_profile():
     print("\n--- PROFILE ---")
