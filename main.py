@@ -192,19 +192,44 @@ def search_auctions():
         return
 
 def place_bids():
-    choice = input("\Please insert the item_id to make a bid on: ")
+    # Display 
     cursor.execute("""
-        SELECT item_id, item_name, starting_price, category, item_condition 
-        FROM item WHERE item_id = %s;
+        SELECT I.item_id, I.item_name, I.category, B.bid_amount, I.item_condition, A.auction_status
+        FROM item I 
+        INNER JOIN auction A ON I.item_id = A.item_id
+        INNER JOIN bid B ON A.auction_id = B.auction_id
+        WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
+                              FROM bid B2     
+                              WHERE B2.auction_id = A.auction_id);
+    """)
+    print("\nbid_id | Item Name | Category | Current Bid | Condition | Status")
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+
+    choice = input("\nPlease insert the item_id to make a bid on: ")
+    cursor.execute("""
+        SELECT I.item_id, I.item_name, I.category, B.bid_amount, I.item_condition, A.auction_status
+        FROM item I 
+        INNER JOIN auction A ON I.item_id = A.item_id
+        INNER JOIN bid B ON A.auction_id = B.auction_id
+        WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
+                              FROM bid B2     
+                              WHERE B2.auction_id = A.auction_id)
+              AND I.item_id = %s;
     """, (choice,))
+    print("\nbid_id | Item Name | Category | Current Bid | Condition | Status")
     print(cursor.fetchone())
 
-    # Get highest price for auction # NEED TO CHANGE
+    # Get highest price for auction 
     cursor.execute("""
-        SELECT starting_price FROM item WHERE item_id = %s;
+        SELECT MAX(B.bid_amount)
+        FROM auction A
+        INNER JOIN bid B ON A.auction_id = B.auction_id
+        WHERE A.item_id = %s;
     """, (choice,))
     starting_price = cursor.fetchone()[0]
-    print("Starting Price: ", starting_price)
+    print("Starting Price: $", starting_price)
 
     # Get bid amount from user input
     bid = 0
