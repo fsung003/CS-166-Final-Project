@@ -1,5 +1,7 @@
 .PHONY: all db init run clean
 
+all: init run
+
 # Database connection settings
 DB_HOST= 127.0.0.1
 DB_PORT= 32237

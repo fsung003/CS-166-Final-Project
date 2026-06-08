@@ -3,7 +3,7 @@ import psycopg2
 from decimal import Decimal
 
 username = os.getlogin() 
-db_name = f"{username}_phase3_DB"
+db_name = f"{username}_DB"
 
 try:
     #Connect via TCP network using your username
@@ -59,7 +59,7 @@ def main():
     
 def login():
     global current_user
-    login_input = input("Enter your username/login: ")
+    login_input = input("\nEnter your username/login: ")
     password = input("Enter your password: ")
 
     # Schema uses 'login' instead of 'username' and returns 'login, role'
@@ -95,7 +95,7 @@ def register():
         """, (login_input, password, phone, address, fav_category))
 
         conn.commit()
-        print("Account created! You can now log in.")
+        print("Account created! You can now log in. \n \n")
         main()
 
     except psycopg2.IntegrityError:
@@ -146,29 +146,53 @@ def user_menu():
 
 def browse_items():
     cursor.execute("""
-        SELECT item_id, item_name, category, starting_price, item_condition
-        FROM item;
+        SELECT I.item_id, I.item_name, I.category, I.starting_price, I.item_condition, A.auction_status
+        FROM item I JOIN auction A ON I.item_id = A.item_id;
     """)
 
+    print("\nid | Item Name | Category | Current Bid | Condition | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
     print("Items displayed.")
 
-def search_auctions():
-    cursor.execute("""
-        SELECT A.auction_id, I.item_name, A.seller_login, A.current_highest_bid, A.auction_status 
-        FROM auction A INNER JOIN item I ON A.item_id = I.item_id;
-    """)
+    if input("\nPress Enter to return to the menu..."):
+        return
 
+def search_auctions():
+
+    searchType = input("\nSearch for (1) Item Name, (2) Category, or (3) Seller. Enter 1, 2, or 3: ")
+    searchTerm = input("Enter term to search: ")
+
+    if(searchType == "1"):
+        cursor.execute("""
+            SELECT A.auction_id, I.item_name, A.seller_login, A.current_highest_bid, A.auction_status 
+            FROM auction A INNER JOIN item I ON A.item_id = I.item_id
+            WHERE I.item_name ILIKE %s; """, (f"%{searchTerm}%",))
+    elif(searchType == "2"):
+        cursor.execute("""
+            SELECT A.auction_id, I.item_name, A.seller_login, A.current_highest_bid, A.auction_status 
+            FROM auction A INNER JOIN item I ON A.item_id = I.item_id
+            WHERE I.category ILIKE %s; """, (f"%{searchTerm}%",))
+    elif(searchType == "3"):
+         cursor.execute("""
+            SELECT A.auction_id, I.item_name, A.seller_login, A.current_highest_bid, A.auction_status 
+            FROM auction A INNER JOIN item I ON A.item_id = I.item_id
+            WHERE A.seller_login ILIKE %s; """, (f"%{searchTerm}%",))
+    else:
+        print("Invalid search type. Showing all auctions.")
+
+    print("\nid | Item Name | Seller | Current Bid | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
     print("Auctions displayed.")
 
+    if input("\nPress Enter to return to the menu..."):
+        return
+
 def place_bids():
-    browse_items()
-    choice = input("\nSelect an item_id to make a bid on: ")
+    choice = input("\Please insert the item_id to make a bid on: ")
     cursor.execute("""
         SELECT item_id, item_name, starting_price, category, item_condition 
         FROM item WHERE item_id = %s;
@@ -200,6 +224,9 @@ def place_bids():
     conn.commit()
     print("Bid placed.")
 
+    if input("\nPress Enter to return to the menu..."):
+        return
+
 def view_auction_status():
     cursor.execute("""
         SELECT B.bid_id, A.auction_id, A.item_id, B.buyer_login, B.bid_amount
@@ -212,24 +239,58 @@ def view_auction_status():
         print(row)
     print("Auctions displayed.")
 
+    if input("\nPress Enter to return to the menu..."):
+        return
+
 def view_profile():
     print("\n--- PROFILE ---")
     print("Username/Login:", current_user.login)
+    print("Phone:", current_user.phone)
+    print("Address:", current_user.address)
     print("Role:", current_user.role)
+    print("Favorite Category:", current_user.favorite_category)
+    
+
+    if input("\nPress Enter to return to the menu..."):
+        return
 
 def edit_profile():
-    phone = input("New phone number: ")
-    address = input("New address: ")
+    change = input("\nWhat would you like to edit? (1) Username, (2) Phone, (3) Address, (4) Favorite Category: ")
 
-    # Schema changes: 'phone_num' instead of 'phone', and 'login' instead of 'id'
-    cursor.execute("""
-        UPDATE users
-        SET phone_num = %s, address = %s
-        WHERE login = %s
-    """, (phone, address, current_user.login))
+    if(change == "1"):
+        new_login = input("New username/login: ")
+        cursor.execute(
+            """UPDATE users
+            SET login = %s
+            WHERE login = %s""", (new_login, current_user.login))
+        current_user.login = new_login  # Update current user object
+    elif(change == "2"):
+        new_phone = input("New phone number: ")
+        cursor.execute(
+            """UPDATE users
+            SET phone_num = %s
+            WHERE login = %s""", (new_phone, current_user.login))
+    elif(change == "3"):
+        address = input("New address: ")
+        cursor.execute(
+            """UPDATE users
+            SET address = %s
+            WHERE login = %s""", (address, current_user.login))
+    elif(change == "4"):
+        favorite_category = input("New favorite category: ")
+        cursor.execute(
+            """UPDATE users
+            SET favorite_category = %s
+            WHERE login = %s """, (favorite_category, current_user.login))
+    else:
+        print("Invalid choice.")
+        return
 
     conn.commit()
     print("Profile updated.")
+
+    if input("\nPress Enter to return to the menu..."):
+        return
 
 def change_role():
     target_login = input("User login to modify: ")
@@ -248,6 +309,9 @@ def change_role():
 
     conn.commit()
     print("Role updated.")
+
+    if input("\nPress Enter to return to the menu..."):
+        return
 
 def logout():
     global current_user
