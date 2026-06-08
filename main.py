@@ -1,23 +1,22 @@
 import os
 import psycopg2
 
-# Dynamically gets your lab username ("ali229")
 username = os.getlogin() 
 db_name = f"{username}_DB"
 
 try:
-    # Attempt 1: Connect via TCP network using your username
+    #Connect via TCP network using your username
     conn = psycopg2.connect(
         dbname=db_name,
         user=username,
-        host="127.0.0.1",   # Force network connection
-        port="32237"        # Your exact custom port
+        host="127.0.0.1",  
+        port="32237"       
     )
     cursor = conn.cursor()
     print(f"Successfully connected to university database: {db_name} on port 32237!")
 except Exception as e:
     try:
-        # Attempt 2: Fallback to the 'postgres' user if username is blocked
+        # Fallback to the 'postgres' user if username is blocked
         conn = psycopg2.connect(
             dbname=db_name,
             user="postgres",
@@ -96,6 +95,7 @@ def register():
 
         conn.commit()
         print("Account created! You can now log in.")
+        main()
 
     except psycopg2.IntegrityError:
         print("Login username already exists.")
@@ -109,7 +109,6 @@ def user_menu():
         print("4. View Auction Status")
         print("5. View Profile")
         print("6. Edit Profile")
-        print()
         
         if current_user.role == "Admin":
             print("7. Change User Role")
