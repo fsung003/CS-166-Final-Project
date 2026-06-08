@@ -192,67 +192,74 @@ def search_auctions():
         return
 
 def place_bids():
-    # Display auctions with current highest bid
     if current_user.role == "Seller":
         print("\nUser is a Seller, cannot place bids on auctions.")
         return
     cursor.execute("""
-        SELECT I.item_id, I.item_name, I.category, B.bid_amount, I.item_condition, A.auction_status
+        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.item_condition, A.auction_status
         FROM item I 
         INNER JOIN auction A ON I.item_id = A.item_id
-        INNER JOIN bid B ON A.auction_id = B.auction_id
-        WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
-                              FROM bid B2     
-                              WHERE B2.auction_id = A.auction_id)
-              AND A.auction_status = 'Active';
+        WHERE A.auction_status = 'Active';
     """)
-    print("\nitem_id | Item Name | Category | Current Bid | Condition | Status")
+    print("\nAuction id | Item Name | Category | Highest Bid | Condition | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
 
-    choice = input("\nPlease insert the item_id to make a bid on: ")
+    choice_auction_id = input("\nPlease insert the auction_id to make a bid on: ")
     cursor.execute("""
-        SELECT I.item_id, I.item_name, I.category, B.bid_amount, I.item_condition, A.auction_status
+        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.item_condition, A.auction_status
         FROM item I 
         INNER JOIN auction A ON I.item_id = A.item_id
-        INNER JOIN bid B ON A.auction_id = B.auction_id
-        WHERE B.bid_amount = (SELECT MAX(B2.bid_amount)
-                              FROM bid B2     
-                              WHERE B2.auction_id = A.auction_id)
-              AND A.auction_status = 'Active'
-              AND I.item_id = %s;
-    """, (choice,))
-    print("\nitem_id | Item Name | Category | Current Bid | Condition | Status")
-    print(cursor.fetchone())
+        WHERE A.auction_status = 'Active' AND A.auction_id = %s;
+    """, (choice_auction_id,))
+    row = cursor.fetchone()
 
-    # Get highest price for auction 
-    cursor.execute("""
-        SELECT MAX(B.bid_amount)
-        FROM auction A
-        INNER JOIN bid B ON A.auction_id = B.auction_id
-        WHERE A.item_id = %s;
-    """, (choice,))
-    starting_price = cursor.fetchone()[0]
+    if row is None:
+        print("\nAuction does not exist.")
+        return
+    print(row)
+    
+    # Get highest price for auction
+    starting_price = Decimal(row[3]) # gets current_highest_bid
     print("Starting Price: $", starting_price)
 
     # Get bid amount from user input
-    bid = 0
-    while bid <= starting_price:
-        bid = Decimal(input("\nPlease enter a bid higher than the current auction price, or enter 0 to not make a bid: "))
-        if bid == 0:
-            return
-
+    while True:
+        try:
+            bid_input = (input("\nPlease enter a bid higher than the current auction price (or enter 0 to cancel): "))
+            bid = Decimal(bid_input)
+            if bid == 0:
+                return
+            if bid > starting_price:
+                break
+        except:
+            print("Invalid input. Please enter a number.")
+    print("Bid: $", bid)
+    
     # Get new bid id
     cursor.execute("SELECT MAX(bid_id) FROM bid;")
-    bid_id = cursor.fetchone()[0] + 1
+    max_bid_id = cursor.fetchone()[0]
+    bid_id = 0
+    if max_bid_id == None:
+        bid_id = 1
+    else:
+        bid_id = max_bid_id + 1
 
     # Insert new bid into database
     cursor.execute("""
         INSERT INTO bid (bid_id, auction_id, buyer_login, buyer_role, bid_amount) VALUES (%s, %s, %s, %s, %s);
-    """, (bid_id, 1, current_user.login, "Buyer", bid))
+    """, (bid_id, choice_auction_id, current_user.login, "Buyer", bid))
     conn.commit()
     print("Bid placed.")
+    
+    # Change highest bid of auction
+    cursor.execute("""
+        UPDATE auction
+        SET current_highest_bid = %s
+        WHERE auction_id = %s;
+    """, (bid, choice_auction_id))
+    conn.commit()
 
     if input("\nPress Enter to return to the menu..."):
         return
