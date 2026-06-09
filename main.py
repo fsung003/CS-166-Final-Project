@@ -11,10 +11,10 @@ try:
         dbname=db_name,
         user=username,
         host="127.0.0.1",  
-        port="32237"       
+        port= "32237"       
     )
     cursor = conn.cursor()
-    print(f"Successfully connected to university database: {db_name} on port 35945!")
+    print(f"Successfully connected to university database: {db_name} on port 32237!")
 except Exception as e:
     try:
         # Fallback to the 'postgres' user if username is blocked
@@ -22,10 +22,10 @@ except Exception as e:
             dbname=db_name,
             user="postgres",
             host="127.0.0.1",
-            port="35945"
+            port="32237"
         )
         cursor = conn.cursor()
-        print(f"Successfully connected to university database: {db_name} (as postgres) on port 35945!")
+        print(f"Successfully connected to university database: {db_name} (as postgres) on port 32237!")
     except Exception as fallback_error:
         print(f"Database Connection Failed!\n")
         print(f"Attempt with user '{username}' failed: {e}\n")
@@ -113,8 +113,9 @@ def user_menu():
         
         if current_user.role == "Admin":
             print("7. Change User Role")
-        if current_user.role == "Seller":
+        elif current_user.role == "Seller":
             print("7. Create Listing")
+            print("8. Manage Listing")
 
         print("0. Logout")
 
@@ -126,18 +127,18 @@ def user_menu():
             search_auctions()
         elif choice == "3":
             place_bids()
-        elif choice == "4" and current_user.role != "Seller":
-            print("User is a buyer. No current auctions to display.")
-        elif choice == "4" and current_user.role == "Seller":
+        elif choice == "4":
             view_auction_status()
         elif choice == "5":
             view_profile()
         elif choice == "6":
             edit_profile()
         elif choice == "7" and current_user.role == "Admin":
-            change_role()
+            change_role() 
         elif choice == "7" and current_user.role == "Seller":
             create_listing()
+        elif choice == "8" and current_user.role == "Seller":
+            manage_listing()
         elif choice == "0":
             logout()
             break
@@ -191,24 +192,26 @@ def search_auctions():
     if input("\nPress Enter to return to the menu..."):
         return
 
+
 def place_bids():
     if current_user.role == "Seller":
         print("\nUser is a Seller, cannot place bids on auctions.")
         return
+    # Display auctions with current highest bid
     cursor.execute("""
-        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.item_condition, A.auction_status
+        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.starting_price, I.item_condition, A.auction_status
         FROM item I 
         INNER JOIN auction A ON I.item_id = A.item_id
         WHERE A.auction_status = 'Active';
     """)
-    print("\nAuction id | Item Name | Category | Highest Bid | Condition | Status")
+    print("\nAuction id | Item Name | Category | Highest Bid | Listed Price | Condition | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
 
     choice_auction_id = input("\nPlease insert the auction_id to make a bid on: ")
     cursor.execute("""
-        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.item_condition, A.auction_status
+        SELECT A.auction_id, I.item_name, I.category, A.current_highest_bid, I.starting_price, I.item_condition, A.auction_status
         FROM item I 
         INNER JOIN auction A ON I.item_id = A.item_id
         WHERE A.auction_status = 'Active' AND A.auction_id = %s;
@@ -241,7 +244,7 @@ def place_bids():
     cursor.execute("SELECT MAX(bid_id) FROM bid;")
     max_bid_id = cursor.fetchone()[0]
     bid_id = 0
-    if max_bid_id == None:
+    if max_bid_id is None:
         bid_id = 1
     else:
         bid_id = max_bid_id + 1
@@ -266,15 +269,16 @@ def place_bids():
         
 def view_auction_status():
     cursor.execute("""
-        SELECT B.bid_id, A.auction_id, A.item_id, B.buyer_login, B.bid_amount
+        SELECT A.auction_id, B.bid_id, A.item_id, I.item_name, A.seller_login, B.buyer_login, B.bid_amount, A.auction_status
         FROM auction A
         INNER JOIN bid B ON A.auction_id = B.auction_id
+        INNER JOIN item I on A.item_id = I.item_id
     """)
-
+    print("\nAuction id | Bid id | Item id | Seller | Buyer | Bid | Status")
     rows = cursor.fetchall()
     for row in rows:
         print(row)
-    print("Auctions displayed.")
+    print("Auctions and bids made displayed.")
 
     if input("\nPress Enter to return to the menu..."):
         return
@@ -287,7 +291,6 @@ def view_profile():
     print("Role:", current_user.role)
     print("Favorite Category:", current_user.favorite_category)
     
-
     if input("\nPress Enter to return to the menu..."):
         return
 
@@ -329,6 +332,174 @@ def edit_profile():
     if input("\nPress Enter to return to the menu..."):
         return
 
+def create_listing():
+    item_name = input("\nPlease enter the name of item being listed: ")
+    category = input("Please enter the category of the item: ")
+    while True:
+        try:
+            starting_price = Decimal(input("Please enter the minimum price for bidding: "))
+            if starting_price < 0:
+                print("Price cannot be negative.")
+                continue
+            break
+        except:
+            print("Invalid input. Please enter a valid number.")
+    condition = input("Please enter the condition of the item(Used or New): ")
+    while condition not in ("Used", "New"):
+        condition = input("Please enter the condition of the item(Used or New): ")
+    description = input("Enter a description for the item: ")
+    choice = (input("Create auction for item? Select 1 to create listing, or 0 to exit: "))
+    while choice not in ("1", "0"):
+        choice = input("Please enter a value between 0 and 1: ")
+    if choice == "0":
+        return
+
+    # Get new auction id
+    cursor.execute("SELECT MAX(auction_id) FROM auction;")
+    max_auction_id = cursor.fetchone()[0]
+    new_auction_id = 0
+    if max_auction_id is None:
+        new_auction_id = 1
+    else:
+        new_auction_id = max_auction_id + 1
+
+    # Get new item id
+    cursor.execute("SELECT MAX(item_id) FROM item;")
+    max_item_id = cursor.fetchone()[0]
+    new_item_id = 0
+    if max_item_id is None:
+        new_item_id = 1
+    else:
+        new_item_id = max_item_id + 1
+
+    # Add item into system
+    cursor.execute("""
+        INSERT INTO item (item_id, item_name, category, starting_price, item_condition, description, seller_login, seller_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    """, (new_item_id, item_name, category, starting_price, condition, description, current_user.login, "Seller"))
+    conn.commit()
+
+    # Create auction based on item
+    # INSERT INTO auction (auction_id, item_id, seller_login, seller_role) VALUES (1, 517, 'alice', 'Seller');
+    cursor.execute("""
+        INSERT INTO auction (auction_id, item_id, seller_login, seller_role) VALUES (%s, %s, %s, %s);
+    """, (new_auction_id, new_item_id, current_user.login, "Seller"))
+    conn.commit()
+
+    print("\nAuction has been created.")
+
+    if input("\nPress Enter to return to the menu..."):
+        return
+
+    return
+
+def manage_listing():
+    print("\nDisplaying current active auctions and bids.")
+    # Display auctions
+    cursor.execute("""
+        SELECT *
+        FROM auction
+        WHERE auction_status = %s AND seller_login = %s;
+    """, ("Active", current_user.login))
+    rows = cursor.fetchall()
+    print("\nAuction id | Item id | Seller | Role | Highest Bid | Status")
+    for row in rows:
+        print(row)
+    print("Auctions displayed.")
+
+    cursor.execute("""
+        SELECT *
+        FROM bid B
+        INNER JOIN auction A on B.auction_id = A.auction_id
+        WHERE seller_login = %s;
+    """, (current_user.login,))
+    rows = cursor.fetchall()
+    print("\nBid id | Auction id | Buyer | Role | Bid Amount | Timestamp")
+    for row in rows:
+        print(row)
+    print("Bids displayed.")
+
+    auction_choice = input("\nChoose Auction ID to manage: ")
+    # Verify auction if owned by seller
+    cursor.execute("""
+        SELECT auction_id
+        FROM auction
+        WHERE auction_id = %s AND seller_login = %s AND auction_status = 'Active';
+    """, (auction_choice, current_user.login))
+    row = cursor.fetchone()
+    if row is None:
+        print("Invalid auction selection or not owned by you.")
+        return
+    
+    choice = input("\nClose auction and sell to highest bidder (Y or N)?: ")
+    while choice not in ("Y", "N"):
+        choice = input("\nClose auction and sell to highest bidder (Y or N)?: ")
+    if choice == "N":
+        print("\nAuction will remain open.")
+        return
+
+    # Update auction to closed, begin payment from buyer to seller, start shipping
+    # Get amount of highest bid and winner
+    cursor.execute("""
+        SELECT bid_amount, buyer_login
+        FROM bid
+        WHERE auction_id = %s
+        ORDER BY bid_amount DESC
+        LIMIT 1;
+    """, (auction_choice,))
+    row = cursor.fetchone()
+    if row is None:
+        print("No bids where placed on auction. Closing auction without buyers.")
+        cursor.execute("""
+            UPDATE auction
+            SET auction_status = 'Closed'
+            WHERE auction_id = %s;
+        """, (auction_choice,))
+        conn.commit()
+        return
+
+    highest_bid, buyer_login = row
+
+    # Close auction
+    cursor.execute("""
+        UPDATE auction
+        SET auction_status = 'Closed'
+        WHERE auction_id = %s;
+    """, (auction_choice,))
+
+    # Get new payment id
+    cursor.execute("SELECT MAX(payment_id) FROM payment;")
+    max_payment_id = cursor.fetchone()[0]
+    new_payment_id = 1 if max_payment_id is None else max_payment_id + 1
+
+    # Create payment
+    cursor.execute("""
+        INSERT INTO payment (payment_id, auction_id, buyer_login, buyer_role, amount, payment_status) VALUES (%s, %s, %s, %s, %s, %s);
+    """, (new_payment_id, auction_choice, buyer_login, "Buyer", highest_bid, "Pending"))
+
+    # Get new shipment id
+    cursor.execute("SELECT MAX(shipment_id) FROM shipment;")
+    max_shipment_id = cursor.fetchone()[0]
+    new_shipment_id = 1 if max_shipment_id is None else max_shipment_id + 1
+
+    # Get buyer address 
+    cursor.execute("""
+        SELECT address
+        FROM users
+        WHERE login = %s;
+    """, (buyer_login,))
+
+    row = cursor.fetchone()
+    address = row[0] if row else None
+
+    cursor.execute("""
+        INSERT INTO shipment (shipment_id, auction_id, address,shipment_status, tracking_number) VALUES (%s, %s, %s, %s, %s);
+    """, (new_shipment_id,auction_choice,address,"Pending" ,None))
+
+    conn.commit()
+    print("Auction closed, payment created, shipment started.")
+
+    return
+
 def change_role():
     target_login = input("User login to modify: ")
     new_role = input("New role (Buyer/Seller/Admin): ")
@@ -337,7 +508,6 @@ def change_role():
         print("Invalid role.")
         return
 
-    # Schema uses 'login' instead of 'username'
     cursor.execute("""
         UPDATE users
         SET role = %s
