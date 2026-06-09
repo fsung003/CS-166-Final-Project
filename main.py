@@ -113,6 +113,7 @@ def user_menu():
         
         if current_user.role == "Admin":
             print("7. Change User Role")
+            print("8. Monitor Users")
         if current_user.role == "Seller":
             print("7. Create Listing")
             print("8. Manage Listing")
@@ -137,6 +138,8 @@ def user_menu():
             change_role() 
         elif choice == "7" and current_user.role == "Seller":
             create_listing()
+        elif choice == "8" and current_user.role == "Admin":
+            monitor_users()
         elif choice == "8" and current_user.role == "Seller":
             manage_listing()
         elif choice == "0":
@@ -515,17 +518,58 @@ def change_role():
         print("Invalid role.")
         return
 
+    # Check if target_login exists
+    cursor.execute("""
+        SELECT login, role
+        FROM users
+        WHERE login = %s;
+    """, (target_login,))
+    row = cursor.fetchone()
+    if row is None:
+        print("\nSelected user is invalid or does not exist.")
+        return
+    
+    curr_role = row[1]
+    if new_role == curr_role:
+        print("\nNew role is the same as the current role.")
+        return
+    elif curr_role == "Buyer":
+        cursor.execute("""
+            DELETE FROM bid
+            WHERE buyer_login = %s;
+        """, (target_login,))
+        cursor.execute("""
+            DELETE FROM payment
+            WHERE buyer_login = %s;
+        """, (target_login,))
+    elif curr_role == "Seller":
+        pass
+    
     cursor.execute("""
         UPDATE users
         SET role = %s
-        WHERE login = %s
+        WHERE login = %s;
     """, (new_role, target_login))
+
 
     conn.commit()
     print("Role updated.")
 
     if input("\nPress Enter to return to the menu..."):
         return
+
+def monitor_users():
+    cursor.execute("""
+        SELECT *
+        FROM users
+    """)
+    rows = cursor.fetchall()
+    print("\nLogin | Password | Phone | Address | Role | Favorite Category")
+    for row in rows:
+        print(row)
+
+    print("\nAll users displayed.")
+    return
 
 def logout():
     global current_user
