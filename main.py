@@ -3,7 +3,7 @@ import psycopg2
 from decimal import Decimal
 
 username = os.getlogin() 
-db_name = f"{username}_DB"
+db_name = f"{username}_DB" # Change to name of database
 
 try:
     #Connect via TCP network using your username
@@ -11,10 +11,10 @@ try:
         dbname=db_name,
         user=username,
         host="127.0.0.1",  
-        port= "32237"       
+        port= "32237" # Change to personal port number
     )
     cursor = conn.cursor()
-    print(f"Successfully connected to university database: {db_name} on port 32237!")
+    print(f"Successfully connected to university database: {db_name} on port 32237!") 
 except Exception as e:
     try:
         # Fallback to the 'postgres' user if username is blocked
@@ -22,7 +22,7 @@ except Exception as e:
             dbname=db_name,
             user="postgres",
             host="127.0.0.1",
-            port="32237"
+            port="32237" # Change to personal port number
         )
         cursor = conn.cursor()
         print(f"Successfully connected to university database: {db_name} (as postgres) on port 32237!")
@@ -113,7 +113,7 @@ def user_menu():
         
         if current_user.role == "Admin":
             print("7. Change User Role")
-        elif current_user.role == "Seller":
+        if current_user.role == "Seller":
             print("7. Create Listing")
             print("8. Manage Listing")
 
@@ -285,11 +285,18 @@ def view_auction_status():
 
 def view_profile():
     print("\n--- PROFILE ---")
-    print("Username/Login:", current_user.login)
-    print("Phone:", current_user.phone)
-    print("Address:", current_user.address)
-    print("Role:", current_user.role)
-    print("Favorite Category:", current_user.favorite_category)
+    cursor.execute("""
+        SELECT login, phone_num, address, role, favorite_category
+        FROM users
+        WHERE login = %s;
+    """, (current_user.login,))
+    row = cursor.fetchone()
+    login, phone, address, role, favorite_category = row
+    print("Username/Login:", login)
+    print("Phone:", phone)
+    print("Address:", address)
+    print("Role:", role)
+    print("Favorite Category:", favorite_category)
     
     if input("\nPress Enter to return to the menu..."):
         return
