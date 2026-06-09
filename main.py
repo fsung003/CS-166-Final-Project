@@ -112,8 +112,7 @@ def user_menu():
         print("6. Edit Profile")
         
         if current_user.role == "Admin":
-            print("7. Change User Role")
-            print("8. Monitor Users")
+            print("7. Monitor Users")
         if current_user.role == "Seller":
             print("7. Create Listing")
             print("8. Manage Listing")
@@ -135,11 +134,9 @@ def user_menu():
         elif choice == "6":
             edit_profile()
         elif choice == "7" and current_user.role == "Admin":
-            change_role() 
+            monitor_users()
         elif choice == "7" and current_user.role == "Seller":
             create_listing()
-        elif choice == "8" and current_user.role == "Admin":
-            monitor_users()
         elif choice == "8" and current_user.role == "Seller":
             manage_listing()
         elif choice == "0":
